@@ -6,16 +6,9 @@ export default defineConfig({
   server: {
     proxy: {
       "/api/tts": {
-        target: "https://translate.googleapis.com",
+        target: "http://127.0.0.1:8000",
         changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/api\/tts/, "/translate_tts"),
-        configure: (proxy) => {
-          proxy.on("proxyReq", (proxyReq) => {
-            proxyReq.setHeader("User-Agent", "Mozilla/5.0");
-            proxyReq.setHeader("Referer", "https://translate.google.com/");
-          });
-        }
+        rewrite: (path) => path.replace(/^\/api\/tts/, "/api/tts")
       }
     }
   }
