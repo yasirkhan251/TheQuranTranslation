@@ -4,28 +4,35 @@ An Android-first Quran study companion built with React, Vite, and Capacitor, wi
 
 ## Run the web development version
 
-Install Node.js LTS, then run:
+Install Node.js LTS and Python 3.10+, then run `npm install` and install the Python voice dependency once:
 
-```bash
+```powershell
 npm install
-npm run dev
+py -m pip install -r requirements-tts.txt
 ```
 
-Open the localhost URL printed by Vite.
+Then start **both** the Vite app and Urdu/English neural voice server with one command:
+
+```powershell
+npm run dev:all
+```
+
+This runs the same Python command as `py -c "import runpy; runpy.run_path('tts_server.py', run_name='__main__')"` alongside `npm run dev`. Keep that terminal open; press `Ctrl+C` to stop the services. Open the localhost URL printed by Vite. On macOS/Linux, the launcher uses `python3`.
 
 ## Android app project
 
-Install Android Studio and its Android SDK first, then run in the project folder:
+The project is configured for Capacitor Android packaging. Install Android Studio, its Android SDK, and Java/Gradle prerequisites, then run:
 
 ```bash
 npm install
-npx cap add android
-npm run build
-npx cap sync android
-npx cap open android
+npm run android:add
+npm run android:sync
+npm run android:open
 ```
 
-Once Android Studio opens, allow Gradle to sync. Connect an Android phone with USB debugging enabled or launch an emulator, then press **Run**. To generate a local APK use **Build → Build Bundle(s) / APK(s) → Build APK(s)**. This repository contains source code and Android packaging configuration; it does not contain a prebuilt or signed APK.
+Run `npm run android:add` only once; if the `android/` folder already exists, skip it. In Android Studio, allow Gradle to sync, connect a phone with USB debugging enabled or start an emulator, then press **Run**. To create an APK, use **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
+
+**Important mobile voice limitation:** `npm run dev:all` is a desktop development launcher, not something an installed Android app can execute. The current `/api/tts` route is proxied by Vite to a Python server on your computer. A packaged app cannot use that Vite proxy, and the phone cannot reach the computer's `127.0.0.1` as its own server. Before Urdu/English neural voices work in the installed APK, the TTS service must be deployed to a secure HTTPS backend (or implemented as an on-device/native service) and the app configured to use it. Arabic recitation uses its existing hosted audio source. This repository setup does not yet include a deployed TTS backend or a built/signed APK.
 
 ## Features in this prototype
 
