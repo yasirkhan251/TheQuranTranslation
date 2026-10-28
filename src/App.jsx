@@ -67,9 +67,34 @@ function VerseText({label,text,rtl=false,surahId=1,verseNo=1}) {
   if(window.noorVerseAudio){window.noorVerseAudio.pause();window.noorVerseAudio.currentTime=0;window.noorVerseAudio=null;}
   if(window.speechSynthesis)window.speechSynthesis.cancel();
  };
+ const playHostedTTS=async(cleanText)=>{
+  const urls=[
+   "https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl="+language+"&q="+encodeURIComponent(cleanText),
+   "https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl="+language+"&q="+encodeURIComponent(cleanText),
+   "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl="+language+"&q="+encodeURIComponent(cleanText)
+  ];
+  for(const url of urls){
+   const player=new Audio();
+   player.preload="auto";
+   player.src=url;
+   window.noorVerseAudio=player;
+   const outcome=await new Promise(resolve=>{
+    let finished=false;
+    const done=result=>{if(finished)return;finished=true;clearTimeout(timer);player.removeEventListener("canplay",onReady);player.removeEventListener("error",onError);resolve(result);};
+    const onReady=()=>done("ready");
+    const onError=()=>done("error");
+    const timer=window.setTimeout(()=>done("timeout"),7000);
+    player.addEventListener("canplay",onReady,{once:true});
+    player.addEventListener("error",onError,{once:true});
+    player.load();
+   });
+   if(outcome!=="ready"){player.pause();continue;}
+   try{await player.play();return true;}catch{player.pause();}
+  }
+  return false;
+ };
  const speak=async()=>{
   if(!text||/not imported|درآمد نہیں کیا گیا/i.test(text)) return;
-  // Keep the existing per-ayah Arabic recitation unchanged.
   if(isArabic){
    const globalAyah=versesCount.slice(0,surahId-1).reduce((sum,count)=>sum+count,0)+Number(verseNo);
    try{
@@ -80,21 +105,16 @@ function VerseText({label,text,rtl=false,surahId=1,verseNo=1}) {
    }catch{window.alert("Recitation audio could not start. Check your internet connection and try again.");}
    return;
   }
-  // Use hosted neural-style TTS instead of the device's robotic / missing speech voices.
-  // This public Google Translate TTS endpoint needs internet and is not a guaranteed SLA API.
   try{
    stopOtherAudio();
    const cleanText=text.replace(/\s+/g," ").trim();
-   const ttsUrl="https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl="+language+"&q="+encodeURIComponent(cleanText);
-   const player=new Audio(ttsUrl);
-   window.noorVerseAudio=player;
-   player.onerror=()=>window.alert("Natural voice audio could not load. Please check your internet connection and try again.");
-   await player.play();
+   const ok=await playHostedTTS(cleanText);
+   if(!ok)window.alert("Natural voice audio could not load from the voice service. Check your internet connection, disable any blocker for the site, and try again.");
   }catch{
-   window.alert("Natural voice audio could not start. Please check your internet connection and try again.");
+   window.alert("Natural voice audio could not start. Check your internet connection and try again.");
   }
  };
- const buttonTitle=isArabic?"Play this verse's Quran recitation":isUrdu?"Play this Urdu translation in a natural voice":"Play this English translation in a natural voice";
+ const buttonTitle=isArabic?"Play this verse's Quran recitation":isUrdu?"Play this Urdu translation aloud":"Play this English translation aloud";
  return <div className={"translation-block "+(rtl?"urdu-block ":"")+(isArabic?"arabic-verse-text":"")}>
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"}}><label>{label}</label><button type="button" className="icon-btn" onClick={speak} disabled={!text||/not imported|درآمد نہیں کیا گیا/i.test(text)} title={buttonTitle} aria-label={buttonTitle}><Volume2 size={16}/></button></div>
   <p dir={rtl?"rtl":undefined} style={isArabic?{fontSize:"clamp(1.7rem, 2.5vw, 2.35rem)",lineHeight:2.05,fontWeight:500}:undefined}>{text}</p>
