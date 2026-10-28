@@ -77,3 +77,35 @@ The outer keys are Surah numbers and nested keys are verse numbers.
 - Background playback, notification controls, and Android lock-screen controls need a native audio service/plugin and real-device testing.
 - Notes/progress are local to this app/browser profile. Export backups before clearing app/browser data or changing devices.
 - Optional account and cloud sync require a secure backend and authentication.
+
+## Natural Urdu and English verse voices (local development)
+
+Urdu and English verse playback uses Microsoft Edge neural voices through the edge-tts Python package. The Arabic recitation remains a separate hosted per-ayah audio source.
+
+Keep **two terminals** open in the project folder:
+
+**Terminal 1 — start the speech server (Python 3.10+ recommended):**
+
+Windows:
+```powershell
+py -m pip install -r requirements-tts.txt
+py tts_server.py
+```
+
+macOS/Linux:
+```bash
+python3 -m pip install -r requirements-tts.txt
+python3 tts_server.py
+```
+
+Wait until it says `Noor TTS server listening on http://127.0.0.1:8000`.
+
+**Terminal 2 — start the React app:**
+```bash
+npm install
+npm run dev
+```
+
+Open the localhost URL printed by Vite. Both the speech server and Vite must remain running. The speech server requires internet access because it generates neural voice audio online. It is intended for local development, not direct public deployment; production hosting needs a secured backend service.
+
+Voice selections: English `en-US-AriaNeural`, Urdu `ur-PK-UzmaNeural`.
