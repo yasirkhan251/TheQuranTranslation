@@ -63,50 +63,38 @@ function VerseText({label,text,rtl=false,surahId=1,verseNo=1}) {
  const isArabic=label==="ARABIC";
  const isUrdu=rtl&&!isArabic;
  const language=isArabic?"ar":isUrdu?"ur":"en";
+ const stopOtherAudio=()=>{
+  if(window.noorVerseAudio){window.noorVerseAudio.pause();window.noorVerseAudio.currentTime=0;window.noorVerseAudio=null;}
+  if(window.speechSynthesis)window.speechSynthesis.cancel();
+ };
  const speak=async()=>{
   if(!text||/not imported|درآمد نہیں کیا گیا/i.test(text)) return;
-  // Quran audio is served per ayah. Convert Surah + verse to the Quran's global ayah index.
+  // Keep the existing per-ayah Arabic recitation unchanged.
   if(isArabic){
    const globalAyah=versesCount.slice(0,surahId-1).reduce((sum,count)=>sum+count,0)+Number(verseNo);
    try{
-    if(window.noorVerseAudio){window.noorVerseAudio.pause();window.noorVerseAudio.currentTime=0;}
+    stopOtherAudio();
     const player=new Audio("https://cdn.islamic.network/quran/audio/128/ar.alafasy/"+globalAyah+".mp3");
     window.noorVerseAudio=player;
     player.play().catch(()=>window.alert("Recitation audio could not start. Check your internet connection and try again."));
    }catch{window.alert("Recitation audio could not start. Check your internet connection and try again.");}
    return;
   }
-  // Translation audio must speak the selected verse, not replay a full-Surah recording.
-  if(typeof window==="undefined"||!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window)){
-   window.alert("Speech playback is not supported in this browser. Please try a modern version of Chrome, Edge, or Safari.");
-   return;
+  // Use hosted neural-style TTS instead of the device's robotic / missing speech voices.
+  // This public Google Translate TTS endpoint needs internet and is not a guaranteed SLA API.
+  try{
+   stopOtherAudio();
+   const cleanText=text.replace(/\s+/g," ").trim();
+   const ttsUrl="https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl="+language+"&q="+encodeURIComponent(cleanText);
+   const player=new Audio(ttsUrl);
+   window.noorVerseAudio=player;
+   player.onerror=()=>window.alert("Natural voice audio could not load. Please check your internet connection and try again.");
+   await player.play();
+  }catch{
+   window.alert("Natural voice audio could not start. Please check your internet connection and try again.");
   }
-  const synth=window.speechSynthesis;
-  let voices=synth.getVoices();
-  if(!voices.length) voices=await new Promise(resolve=>{
-   let settled=false;
-   const finish=()=>{if(settled)return;settled=true;synth.removeEventListener("voiceschanged",finish);resolve(synth.getVoices());};
-   synth.addEventListener("voiceschanged",finish);window.setTimeout(finish,1200);
-  });
-  const matching=voices.filter(v=>(v.lang||"").toLowerCase().split(/[-_]/)[0]===language);
-  if(!matching.length){
-   window.alert("A "+(isUrdu?"Urdu":"English")+" speech voice is not available on this device. Arabic recitation plays from hosted Quran audio and does not require a device voice.");
-   return;
-  }
-  const preferred=matching.sort((x,y)=>{
-   const score=v=>{const n=(v.name+" "+v.lang).toLowerCase();return (/(natural|neural|online)/.test(n)?5:0)+(/microsoft|google/.test(n)?3:0);};
-   return score(y)-score(x);
-  });
-  synth.cancel();
-  if(window.noorVerseAudio){window.noorVerseAudio.pause();window.noorVerseAudio=null;}
-  const utterance=new SpeechSynthesisUtterance(text);
-  utterance.voice=preferred[0];
-  utterance.lang=preferred[0].lang||(isUrdu?"ur-PK":"en-US");
-  utterance.rate=isUrdu?0.88:0.92;
-  utterance.onerror=event=>{if(event.error!=="canceled"&&event.error!=="interrupted")window.alert("Speech playback failed. Please try again.");};
-  synth.speak(utterance);
  };
- const buttonTitle=isArabic?"Play this verse's Quran recitation":"Read this translation verse aloud";
+ const buttonTitle=isArabic?"Play this verse's Quran recitation":isUrdu?"Play this Urdu translation in a natural voice":"Play this English translation in a natural voice";
  return <div className={"translation-block "+(rtl?"urdu-block ":"")+(isArabic?"arabic-verse-text":"")}>
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"}}><label>{label}</label><button type="button" className="icon-btn" onClick={speak} disabled={!text||/not imported|درآمد نہیں کیا گیا/i.test(text)} title={buttonTitle} aria-label={buttonTitle}><Volume2 size={16}/></button></div>
   <p dir={rtl?"rtl":undefined} style={isArabic?{fontSize:"clamp(1.7rem, 2.5vw, 2.35rem)",lineHeight:2.05,fontWeight:500}:undefined}>{text}</p>
