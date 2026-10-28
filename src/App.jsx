@@ -67,22 +67,6 @@ function VerseText({label,text,rtl=false,surahId=1,verseNo=1}) {
   if(window.noorVerseAudio){window.noorVerseAudio.pause();window.noorVerseAudio.currentTime=0;window.noorVerseAudio=null;}
   if(window.speechSynthesis)window.speechSynthesis.cancel();
  };
- const playUrl=async(url)=>{
-  const player=new Audio();
-  player.preload="auto";
-  player.src=url;
-  window.noorVerseAudio=player;
-  return await new Promise(resolve=>{
-   let settled=false;
-   const finish=result=>{if(settled)return;settled=true;clearTimeout(timer);player.removeEventListener("canplay",ready);player.removeEventListener("error",failed);resolve(result);};
-   const ready=async()=>{try{await player.play();finish(true);}catch{finish(false);}};
-   const failed=()=>finish(false);
-   const timer=window.setTimeout(()=>finish(false),9000);
-   player.addEventListener("canplay",ready,{once:true});
-   player.addEventListener("error",failed,{once:true});
-   player.load();
-  });
- };
  const speak=async()=>{
   if(!text||/not imported|درآمد نہیں کیا گیا/i.test(text)) return;
   if(isArabic){
@@ -95,18 +79,20 @@ function VerseText({label,text,rtl=false,surahId=1,verseNo=1}) {
    }catch{window.alert("Recitation audio could not start. Check your internet connection and try again.");}
    return;
   }
-  stopOtherAudio();
-  const cleanText=text.replace(/\s+/g," ").trim();
-  const q=encodeURIComponent(cleanText);
-  const urls=[
-   "/api/tts?tl="+language+"&q="+q,
-   "https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl="+language+"&q="+q,
-   "https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl="+language+"&q="+q
-  ];
-  for(const url of urls){
-   try{if(await playUrl(url))return;}catch{}
+  try{
+   stopOtherAudio();
+   const response=await fetch("/api/tts?tl="+language+"&q="+encodeURIComponent(text.replace(/\s+/g," ").trim()));
+   if(!response.ok)throw new Error("TTS server returned "+response.status);
+   const blob=await response.blob();
+   if(!blob.size)throw new Error("TTS server returned empty audio");
+   const player=new Audio(URL.createObjectURL(blob));
+   window.noorVerseAudio=player;
+   player.onended=()=>URL.revokeObjectURL(player.src);
+   player.onerror=()=>URL.revokeObjectURL(player.src);
+   await player.play();
+  }catch{
+   window.alert("Natural voice service is not running. Start the Noor TTS server using the README instructions, then try again.");
   }
-  window.alert("The voice service is not reachable right now. Restart the Vite development server and try again. If you are using a deployed site, this local proxy is not available there.");
  };
  const buttonTitle=isArabic?"Play this verse's Quran recitation":isUrdu?"Play this Urdu translation aloud":"Play this English translation aloud";
  return <div className={"translation-block "+(rtl?"urdu-block ":"")+(isArabic?"arabic-verse-text":"")}>
