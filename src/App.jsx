@@ -59,4 +59,39 @@ export default function App(){
 function Stat({icon:I,value,label}){return <div className="stat"><I size={18}/><b>{value}</b><small>{label}</small></div>}
 function Section({title,action,onAction}){return <div className="section-heading"><h2>{title}</h2>{action&&<button className="text-link" onClick={onAction}>{action} →</button>}</div>}
 function PageTitle({title,subtitle,action}){return <div className="page-heading"><div><div className="eyebrow">THE HOLY QURAN</div><h1>{title}</h1><p>{subtitle}</p></div>{action}</div>}
-function VerseText({label,text,rtl=false}){const isArabic=label==="ARABIC";const speak=()=>{if(!text||/not imported|درآمد نہیں کیا گیا/i.test(text)){return;}if(typeof window==="undefined"||!("speechSynthesis" in window)){window.alert("Text-to-speech is not supported by this browser.");return;}window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(text);utterance.lang=isArabic?"ar-SA":rtl?"ur-PK":"en-US";utterance.rate=isArabic?0.82:0.9;window.speechSynthesis.speak(utterance);};return <div className={"translation-block "+(rtl?"urdu-block":"")+(isArabic?" arabic-verse-text":"")}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"}}><label>{label}</label><button type="button" className="icon-btn" onClick={speak} disabled={!text||/not imported|درآمد نہیں کیا گیا/i.test(text)} title={"Read "+label.toLowerCase()+" aloud"} aria-label={"Read "+label.toLowerCase()+" aloud"}><Volume2 size={16}/></button></div><p dir={rtl?"rtl":undefined} style={isArabic?{fontSize:"clamp(1.7rem, 2.5vw, 2.35rem)",lineHeight:2.05,fontWeight:500}:undefined}>{text}</p></div>}
+function VerseText({label,text,rtl=false}) {
+ const isArabic=label==="ARABIC";
+ const language=isArabic?"ar":rtl?"ur":"en";
+ const speak=async()=>{
+  if(!text||/not imported|درآمد نہیں کیا گیا/i.test(text)) return;
+  if(typeof window==="undefined"||!("speechSynthesis" in window)||!("SpeechSynthesisUtterance" in window)){window.alert("Text-to-speech is not supported by this browser.");return;}
+  const synth=window.speechSynthesis;
+  let voices=synth.getVoices();
+  if(!voices.length) voices=await new Promise(resolve=>{
+   let settled=false;
+   const finish=()=>{if(settled)return;settled=true;synth.removeEventListener("voiceschanged",finish);resolve(synth.getVoices());};
+   synth.addEventListener("voiceschanged",finish);window.setTimeout(finish,1200);
+  });
+  const matching=voices.filter(v=>(v.lang||"").toLowerCase().split(/[-_]/)[0]===language);
+  if(!matching.length){
+   const languageName=isArabic?"Arabic":rtl?"Urdu":"English";
+   window.alert("No "+languageName+" voice is available in your browser/device. Install a "+languageName+" speech voice in your system settings, then reload the app. Browser voices are provided by your device.");
+   return;
+  }
+  const preferred=matching.sort((x,y)=>{
+   const score=v=>{const n=(v.name+" "+v.lang).toLowerCase();return (/(natural|neural|online)/.test(n)?5:0)+(/microsoft|google/.test(n)?3:0)+(/female/.test(n)?1:0);};
+   return score(y)-score(x);
+  });
+  synth.cancel();
+  const utterance=new SpeechSynthesisUtterance(text);
+  utterance.voice=preferred[0];
+  utterance.lang=preferred[0].lang||(isArabic?"ar-SA":rtl?"ur-PK":"en-US");
+  utterance.rate=isArabic?0.78:rtl?0.88:0.92;
+  utterance.onerror=event=>{if(event.error!=="canceled"&&event.error!=="interrupted")window.alert("Speech playback failed. Try another installed voice or browser.");};
+  synth.speak(utterance);
+ };
+ return <div className={"translation-block "+(rtl?"urdu-block":"")+(isArabic?" arabic-verse-text":"")}>
+  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"12px"}}><label>{label}</label><button type="button" className="icon-btn" onClick={speak} disabled={!text||/not imported|درآمد نہیں کیا گیا/i.test(text)} title={"Read "+label.toLowerCase()+" aloud"} aria-label={"Read "+label.toLowerCase()+" aloud"}><Volume2 size={16}/></button></div>
+  <p dir={rtl?"rtl":undefined} style={isArabic?{fontSize:"clamp(1.7rem, 2.5vw, 2.35rem)",lineHeight:2.05,fontWeight:500}:undefined}>{text}</p>
+ </div>;
+}
