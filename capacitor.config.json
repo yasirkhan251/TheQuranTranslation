@@ -1,0 +1,6 @@
+{
+  "appId": "com.noor.qurancompanion",
+  "appName": "Noor Quran Companion",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
